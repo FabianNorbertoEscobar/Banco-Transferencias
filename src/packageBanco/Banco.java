@@ -1,5 +1,8 @@
 package packageBanco;
 
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
+
 /**
  * La clase Banco contiene cuentas bancarias y permite realizar transferencias
  * entre ellas. <br>
@@ -12,6 +15,7 @@ package packageBanco;
 public class Banco {
 
 	private final double[] cuentas;
+	private Lock cierreBanco = new ReentrantLock();
 
 	/**
 	 * Crea un banco con 100 cuentas con un saldo inicial de 2000 euros
@@ -36,22 +40,24 @@ public class Banco {
 	 *            origen hacia la cuenta destino
 	 */
 	public void transferencias(int cuentaOrigen, int cuentaDestino, double cantidad) {
-		// evalúa que sea posible realizar la transferencia
-		if (this.cuentas[cuentaOrigen] < cantidad) {
-			return;
+
+		this.cierreBanco.lock();
+		try {
+			// evalúa que sea posible realizar la transferencia
+			if (this.cuentas[cuentaOrigen] < cantidad) {
+				return;
+			}
+			System.out.println(Thread.currentThread());
+			this.cuentas[cuentaOrigen] -= cantidad; // sale el dinero de
+													// cuentaOrigen
+			System.out.printf("Transferencia de %10.2f euros de la cuenta %d para la cuenta %d. ", cantidad,
+					cuentaOrigen, cuentaDestino);
+			this.cuentas[cuentaDestino] += cantidad; // entra el dinero a
+														// cuentaDestino
+			System.out.printf("Saldo total: %10.2f euros \n", this.getSaldoTotal());
+		} finally {
+			this.cierreBanco.unlock();
 		}
-
-		System.out.println(Thread.currentThread());
-
-		this.cuentas[cuentaOrigen] -= cantidad; // sale el dinero de
-												// cuentaOrigen
-		System.out.printf("Transferencia de %10.2f euros de la cuenta %d para la cuenta %d. ", cantidad, cuentaOrigen,
-				cuentaDestino);
-
-		this.cuentas[cuentaDestino] += cantidad; // entra el dinero a
-													// cuentaDestino
-
-		System.out.printf("Saldo total: %10.2f euros \n", this.getSaldoTotal());
 	}
 
 	/**
