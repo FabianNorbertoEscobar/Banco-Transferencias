@@ -1,5 +1,6 @@
 package packageBanco;
 
+import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -16,16 +17,20 @@ public class Banco {
 
 	private final double[] cuentas;
 	private Lock cierreBanco = new ReentrantLock();
+	private Condition saldoSuficiente;
 
 	/**
 	 * Crea un banco con 100 cuentas con un saldo inicial de 2000 euros
 	 */
 	public Banco() {
+		// se crean las 100 cuentas
 		cuentas = new double[100];
-
+		// se carga un saldo inicial de 2000 euros a cada una de las cuentas
 		for (int i = 0; i < cuentas.length; i++) {
 			cuentas[i] = 2000;
 		}
+		// se establece una condición de bloqueo al banco
+		this.saldoSuficiente = this.cierreBanco.newCondition();
 	}
 
 	/**
@@ -38,15 +43,18 @@ public class Banco {
 	 * @param cantidad
 	 *            es la suma de dinero que será transferida desde la cuenta
 	 *            origen hacia la cuenta destino
+	 * @throws InterruptedException
 	 */
-	public void transferencias(int cuentaOrigen, int cuentaDestino, double cantidad) {
+	public void transferencias(int cuentaOrigen, int cuentaDestino, double cantidad) throws InterruptedException {
 
 		this.cierreBanco.lock();
 		try {
-			// evalúa que sea posible realizar la transferencia
-			if (this.cuentas[cuentaOrigen] < cantidad) {
-				return;
+			// mientras que sea posible realizar la transferencia, la realiza
+			while (this.cuentas[cuentaOrigen] < cantidad) {
+				// el hilo actual se pone a la escucha, a la espera
+				this.saldoSuficiente.await();
 			}
+
 			System.out.println(Thread.currentThread());
 			this.cuentas[cuentaOrigen] -= cantidad; // sale el dinero de
 													// cuentaOrigen
@@ -55,8 +63,11 @@ public class Banco {
 			this.cuentas[cuentaDestino] += cantidad; // entra el dinero a
 														// cuentaDestino
 			System.out.printf("Saldo total: %10.2f euros \n", this.getSaldoTotal());
+			// se envía una señal a los hilos dormidos para que se despierten si
+			// se satisface la condición de bloqueo
+			this.saldoSuficiente.signalAll();
 		} finally {
-			this.cierreBanco.unlock();
+			this.cierreBanco.unlock(); // desbloquea el hilo actual
 		}
 	}
 
